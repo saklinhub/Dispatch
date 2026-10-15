@@ -1,0 +1,106 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: dispatch
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/dispatch_db
+    username: dispatch
+    password: dispatch
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: public
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:placeholder@gmail.com}
+    password: ${MAIL_PASSWORD:placeholder}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+dispatch:
+  jwt:
+    secret: ${JWT_SECRET:dispatch-super-secret-key-minimum-256-bits-change-in-prod}
+    expiration-ms: 86400000
+    refresh-expiration-ms: 604800000
+
+  rabbitmq:
+    notification-exchange: dispatch.notifications
+    notification-routing-key: notification.process
+    notification-queue: dispatch.notifications.queue
+    dlq-exchange: dispatch.dlq
+    dlq-queue: dispatch.dlq.queue
+    outbox-exchange: dispatch.outbox
+    outbox-routing-key: outbox.publish
+    outbox-queue: dispatch.outbox.queue
+    retry-max-attempts: 3
+
+  mail:
+    from-address: ${MAIL_FROM:noreply@dispatch.io}
+    from-name: Dispatch Notifications
+
+  sms:
+    account-sid: ${TWILIO_ACCOUNT_SID:ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}
+    auth-token: ${TWILIO_AUTH_TOKEN:your_auth_token_here}
+    from-number: ${TWILIO_FROM_NUMBER:+15555555555}
+    messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
+    enabled: ${SMS_ENABLED:false}
+
+  outbox:
+    polling-interval-ms: 5000
+    batch-size: 50
+
+  recovery:
+    stuck-threshold-minutes: 15
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    mail:
+      enabled: false
+
+logging:
+  level:
+    com.dispatch: DEBUG
+    org.springframework.security: INFO
+    org.flywaydb: INFO
+    org.hibernate.SQL: WARN
