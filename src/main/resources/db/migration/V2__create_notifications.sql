@@ -47,6 +47,6 @@ CREATE INDEX idx_notifications_channel_metadata
 
 COMMENT ON TABLE  notifications                   IS 'Every notification request submitted to Dispatch';
 COMMENT ON COLUMN notifications.recipient_address IS 'EMAIL: email address; SMS: E.164 phone; IN_APP: target user UUID';
-COMMENT ON COLUMN notifications.idempotency_key   IS 'Caller-supplied key for duplicate detection (Part 07)';
+COMMENT ON COLUMN notifications.idempotency_key   IS 'Caller-supplied key for duplicate detection';
 COMMENT ON COLUMN notifications.channel_metadata  IS 'Channel-specific parameters stored as JSONB (templateId, Twilio sid, vars…)';
 COMMENT ON COLUMN notifications.scheduled_at      IS 'NULL = process immediately; non-NULL = hold until this timestamp';

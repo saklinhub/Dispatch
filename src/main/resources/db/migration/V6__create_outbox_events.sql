@@ -10,7 +10,7 @@ CREATE TABLE outbox_events (
     aggregate_id   UUID         NOT NULL,
     -- Event name, e.g. NOTIFICATION_CREATED, NOTIFICATION_STATUS_CHANGED
     event_type     VARCHAR(100) NOT NULL,
-    -- Full event payload as JSONB — consumed by the outbox poller (Part 08)
+    -- Full event payload as JSONB — consumed by the outbox poller
     payload        JSONB        NOT NULL,
     status         VARCHAR(20)  NOT NULL DEFAULT 'PENDING'
                        CHECK (status IN ('PENDING', 'PUBLISHED', 'FAILED')),
@@ -34,7 +34,7 @@ CREATE INDEX idx_outbox_events_created_at
 CREATE INDEX idx_outbox_events_payload
     ON outbox_events USING GIN (payload);
 
-COMMENT ON TABLE  outbox_events              IS 'Transactional outbox — events written atomically with domain changes, published to RabbitMQ by poller (Part 08)';
+COMMENT ON TABLE  outbox_events              IS 'Transactional outbox — events written atomically with domain changes, published to RabbitMQ by poller';
 COMMENT ON COLUMN outbox_events.aggregate_type IS 'Domain entity type (NOTIFICATION, USER, etc.)';
 COMMENT ON COLUMN outbox_events.event_type     IS 'Event name (NOTIFICATION_CREATED, STATUS_CHANGED, etc.)';
 COMMENT ON COLUMN outbox_events.payload        IS 'Full serialised event payload as JSONB';

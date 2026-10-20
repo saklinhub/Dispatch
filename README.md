@@ -1,79 +1,92 @@
-# Dispatch 🚀
+# Dispatch
 
-**Reliable Asynchronous Notification Service** — sends email, SMS, and in-app notifications through a durable, queue-backed pipeline.
+**Dispatch** is a backend notification platform built with Spring Boot that reliably processes and delivers email, SMS, and in-app notifications asynchronously. It uses RabbitMQ for message queuing and PostgreSQL for persistent storage.
 
----
+## Features
+
+- **Multi-channel delivery** - Email (SMTP), SMS (Twilio), and In-App notifications
+- **Asynchronous processing** - Notifications are queued via RabbitMQ; the API responds instantly without waiting for delivery
+- **JWT authentication** - Stateless, user-specific access to notification history and preferences
+- **Idempotent requests** - Duplicate API calls with the same idempotency key are safely deduplicated
+- **Automatic retries** - Exponential backoff with configurable max attempts
+- **Dead-letter queue** - Exhausted jobs are routed to a DLQ for inspection and manual replay
+- **Transactional outbox** - Notification records and outgoing events are committed atomically, eliminating database/broker inconsistency
+- **Delivery tracking** - Every delivery attempt is recorded with provider response and error codes
+- **Stuck job recovery** - Processing jobs idle beyond a configurable threshold are automatically reset
+- **In-app inbox** - Read/unread status, inbox fetch, and manual retry controls
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Language | Java 21 |
-| Framework | Spring Boot 3.3.5 |
+| Framework | Spring Boot 3.3 |
 | Database | PostgreSQL 16 |
 | Migrations | Flyway |
-| Broker | RabbitMQ 3.13 |
+| Message Broker | RabbitMQ 3.13 |
 | SMS | Twilio |
-| Auth | JWT (JJWT 0.12) |
+| Authentication | JWT (JJWT) |
 | Testing | JUnit 5, Mockito, Testcontainers |
 | DevOps | Docker, Docker Compose, Maven |
+| API Docs | SpringDoc / Swagger UI |
 
----
+## Getting Started
 
-## Quick Start
+### Prerequisites
+- Java 21
+- Maven 3.9+
+- Docker and Docker Compose
 
-### 1 — Start Infrastructure
+### Run locally
 
 ```bash
+# Start PostgreSQL and RabbitMQ
 docker-compose up -d
-```
 
-- PostgreSQL → `localhost:5433` (mapped to internal `5432`)
-- RabbitMQ → `localhost:5672` | Management UI → http://localhost:15672 (`guest/guest`)
-
-### 2 — Run the Application
-
-```bash
+# Run the application
 mvn spring-boot:run
 ```
 
-Flyway applies all 6 migrations automatically on startup.
+The API is available at `http://localhost:8080`.
+Swagger UI is available at `http://localhost:8080/swagger-ui.html`.
+RabbitMQ management UI is available at `http://localhost:15672` (guest / guest).
 
-### 3 — Verify
+## Environment Variables
 
-```bash
-curl http://localhost:8080/actuator/health
-```
+| Variable | Description |
+|---|---|
+| `JWT_SECRET` | HS256 signing secret (minimum 256 bits) |
+| `MAIL_USERNAME` | SMTP username |
+| `MAIL_PASSWORD` | SMTP password |
+| `MAIL_FROM` | Sender address |
+| `TWILIO_ACCOUNT_SID` | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | Twilio Auth Token |
+| `TWILIO_FROM_NUMBER` | Sender phone in E.164 format |
+| `TWILIO_MESSAGING_SERVICE_SID` | Twilio Messaging Service SID (optional) |
+| `SMS_ENABLED` | Set to `true` to enable real SMS sending |
 
-Expected: `{"status":"UP"}`
+## API Overview
 
----
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/users/{userId}/notifications` | Create a notification |
+| `GET` | `/api/v1/notifications/{id}` | Get notification detail |
+| `GET` | `/api/v1/notifications/{id}/status` | Get notification status |
+| `GET` | `/api/v1/users/{userId}/notifications` | List notifications (paginated) |
+| `DELETE` | `/api/v1/notifications/{id}` | Cancel a notification |
+| `GET` | `/api/v1/notifications/{id}/attempts` | Get delivery attempt history |
 
 ## Database Schema
 
 | Table | Purpose |
 |---|---|
-| `users` | Registered users with email and E.164 phone number |
-| `notifications` | All notification requests (EMAIL, SMS, IN_APP) |
-| `delivery_attempts` | Append-only audit log of every delivery attempt |
-| `notification_preferences` | Per-user channel opt-ins, preferred addresses, and quiet hours |
+| `users` | Registered users |
+| `notifications` | All notification requests |
+| `delivery_attempts` | Append-only delivery audit log |
+| `notification_preferences` | Per-user channel opt-ins and quiet hours |
 | `inbox_messages` | Persisted in-app messages |
-| `outbox_events` | Transactional outbox for reliable broker publishing |
+| `outbox_events` | Transactional outbox events |
 
----
+## License
 
-## Project Roadmap
-
-| Part | Module / Topic | Scope & Key Components | Status |
-|---|---|---|---|
-| **01** | **Core Foundation & Persistence Layer** | Java 21/Spring Boot 3.3 setup, Docker infrastructure, Flyway migrations (V1–V6), JPA Entities, Spring Data JPA Repositories, JPA Auditing, and integration tests | ✅ Completed |
-| **02** | **Authentication & Authorization** | Stateless Spring Security configuration, JWT token provider (HS256), login/register endpoints, UserDetails service, password hashing, and role checks | ⏳ Pending |
-| **03** | **Notification REST APIs & Validation** | Notification ingestion endpoint (`POST /api/v1/notifications`), status inspection APIs, request validation, DTOs, and global exception handling | ⏳ Pending |
-| **04** | **Transactional Outbox & Broker Topology** | RabbitMQ exchange/queue/DLQ bindings, transactional outbox event publisher, scheduled outbox poller, and delivery reliability | ⏳ Pending |
-| **05** | **Asynchronous Consumers & Multi-Channel Delivery** | RabbitMQ message consumers, Strategy pattern for delivery providers (JavaMailSender for Email, Twilio SDK for SMS, Inbox persistence for In-App) | ⏳ Pending |
-| **06** | **Resilience, Retries & Dead Letter Queue (DLQ)** | Error classification (transient vs permanent), exponential backoff retries, delivery attempt audit logs, DLQ routing, and stuck-job recovery | ⏳ Pending |
-| **07** | **Idempotency & Duplicate Prevention** | Distributed/database idempotency key validation, concurrent request deduplication, and cached idempotent response delivery | ⏳ Pending |
-| **08** | **User Preferences & Quiet Hours Evaluation** | Channel opt-in/opt-out filters, address overrides, timezone-aware quiet hours evaluation, and deferred notification scheduling | ⏳ Pending |
-| **09** | **In-App Inbox & Delivery Audit History** | User inbox APIs (`GET /api/v1/inbox`, read/unread toggles, unread counter badge), delivery attempt tracking history endpoints | ⏳ Pending |
-| **10** | **End-to-End Testing, Observability & Containerization** | Testcontainers integration suite (PostgreSQL + RabbitMQ), Actuator metrics, production Dockerfile, and container packaging | ⏳ Pending |
-
+MIT
