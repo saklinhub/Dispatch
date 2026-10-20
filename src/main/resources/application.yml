@@ -1,14 +1,14 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: dispatch
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/dispatch_db
-    username: dispatch
-    password: dispatch
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:dispatch_db}}
+    username: ${DB_USERNAME:dispatch}
+    password: ${DB_PASSWORD:dispatch}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -33,17 +33,17 @@ spring:
     baseline-on-migrate: false
 
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-    virtual-host: /
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:placeholder@gmail.com}
-    password: ${MAIL_PASSWORD:placeholder}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -54,8 +54,8 @@ spring:
 dispatch:
   jwt:
     secret: ${JWT_SECRET:dispatch-super-secret-key-minimum-256-bits-change-in-prod}
-    expiration-ms: 86400000
-    refresh-expiration-ms: 604800000
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
   rabbitmq:
     notification-exchange: dispatch.notifications
@@ -70,12 +70,12 @@ dispatch:
 
   mail:
     from-address: ${MAIL_FROM:noreply@dispatch.io}
-    from-name: Dispatch Notifications
+    from-name: ${MAIL_FROM_NAME:Dispatch Notifications}
 
   sms:
-    account-sid: ${TWILIO_ACCOUNT_SID:ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}
-    auth-token: ${TWILIO_AUTH_TOKEN:your_auth_token_here}
-    from-number: ${TWILIO_FROM_NUMBER:+15555555555}
+    account-sid: ${TWILIO_ACCOUNT_SID:}
+    auth-token: ${TWILIO_AUTH_TOKEN:}
+    from-number: ${TWILIO_FROM_NUMBER:}
     messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
     enabled: ${SMS_ENABLED:false}
 
@@ -90,7 +90,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info
   endpoint:
     health:
       show-details: when-authorized

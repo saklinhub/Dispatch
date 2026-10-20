@@ -5,15 +5,15 @@ services:
     container_name: dispatch-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: dispatch_db
-      POSTGRES_USER: dispatch
-      POSTGRES_PASSWORD: dispatch
+      POSTGRES_DB: ${DB_NAME:-dispatch_db}
+      POSTGRES_USER: ${DB_USERNAME:-dispatch}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dispatch}
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dispatch -d dispatch_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-dispatch} -d ${DB_NAME:-dispatch_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,12 +23,12 @@ services:
     container_name: dispatch-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     ports:
-      - "5672:5672"
-      - "15672:15672"   # Management UI → http://localhost:15672
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"   # Management UI → http://localhost:15672
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
