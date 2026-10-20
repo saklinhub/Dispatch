@@ -122,7 +122,7 @@ Copy `.env.example` to `.env` to customize settings. In production, run with `SP
 | **02** | **Authentication & Authorization** | Stateless Spring Security configuration, JWT token provider (HS256), login/register/refresh endpoints, UserDetails service, password hashing, and role checks | ✅ Completed |
 | **03** | **Notification REST APIs & Validation** | Notification ingestion endpoint (`POST /api/v1/notifications`), status inspection APIs, request validation, DTOs, and global exception handling | ✅ Completed |
 | **04** | **Transactional Outbox & Broker Topology** | RabbitMQ exchange/queue/DLQ bindings, transactional outbox event publisher, scheduled outbox poller, and delivery reliability | ✅ Completed |
-| **05** | **Asynchronous Consumers & Multi-Channel Delivery** | RabbitMQ message consumers, Strategy pattern for delivery providers (JavaMailSender for Email, Twilio SDK for SMS, Inbox persistence for In-App) | ⏳ Pending |
+| **05** | **Asynchronous Consumers & Multi-Channel Delivery** | RabbitMQ message consumers, Strategy pattern for delivery providers (JavaMailSender for Email, Twilio SDK for SMS, Inbox persistence for In-App) | ✅ Completed |
 | **06** | **Resilience, Retries & Dead Letter Queue (DLQ)** | Error classification (transient vs permanent), exponential backoff retries, delivery attempt audit logs, DLQ routing, and stuck-job recovery | ⏳ Pending |
 | **07** | **Idempotency & Duplicate Prevention** | Distributed/database idempotency key validation, concurrent request deduplication, and cached idempotent response delivery | ⏳ Pending |
 | **08** | **User Preferences & Quiet Hours Evaluation** | Channel opt-in/opt-out filters, address overrides, timezone-aware quiet hours evaluation, and deferred notification scheduling | ⏳ Pending |
