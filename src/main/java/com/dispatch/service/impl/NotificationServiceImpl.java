@@ -42,6 +42,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final DeliveryAttemptRepository deliveryAttemptRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final NotificationMapper mapper;
+    private final com.dispatch.resilience.DlqService dlqService;
 
     //Create
 
@@ -178,5 +179,13 @@ public class NotificationServiceImpl implements NotificationService {
 
         log.info("Cancelled notification {} and queued cancel outbox event {}", id, cancelEvent.getId());
         return mapper.toResponse(notification);
+    }
+
+    //Replay
+
+    @Override
+    @Transactional
+    public NotificationResponse replayNotification(UUID id) {
+        return dlqService.replayNotification(id);
     }
 }

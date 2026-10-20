@@ -34,6 +34,11 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     @Query("SELECT n FROM Notification n WHERE n.status = 'PROCESSING' AND n.updatedAt <= :threshold")
     List<Notification> findStuckProcessingNotifications(@Param("threshold") Instant threshold);
 
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Notification n SET n.updatedAt = :updatedAt WHERE n.id = :id")
+    void forceUpdateUpdatedAt(@Param("id") UUID id, @Param("updatedAt") Instant updatedAt);
+
     long countByStatus(NotificationStatus status);
 
     long countByUserIdAndStatus(UUID userId, NotificationStatus status);

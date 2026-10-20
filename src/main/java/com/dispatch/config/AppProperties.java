@@ -58,5 +58,10 @@ public class AppProperties {
     @Data
     public static class Recovery {
         private int stuckThresholdMinutes = 15;
+        private int retryBaseIntervalSeconds = 10;
+        private int retryMultiplier = 2;
+        private int retryMaxIntervalSeconds = 3600;
+        private long retryPollIntervalMs = 5000L;
+        private long checkIntervalMs = 60000L;
     }
 }

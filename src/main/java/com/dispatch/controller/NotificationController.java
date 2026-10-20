@@ -129,4 +129,16 @@ public class NotificationController {
     public ResponseEntity<List<DeliveryAttemptResponse>> getDeliveryAttempts(@PathVariable UUID id) {
         return ResponseEntity.ok(notificationService.getDeliveryAttempts(id));
     }
+
+    //POST /api/v1/notifications/{id}/replay
+
+    @PostMapping("/notifications/{id}/replay")
+    @Operation(
+        summary = "Replay a failed notification",
+        description = "Resets a FAILED notification back to PENDING and triggers re-publishing via the Transactional Outbox. " +
+                      "Returns 422 if the notification is not in FAILED state."
+    )
+    public ResponseEntity<NotificationResponse> replayNotification(@PathVariable UUID id) {
+        return ResponseEntity.ok(notificationService.replayNotification(id));
+    }
 }

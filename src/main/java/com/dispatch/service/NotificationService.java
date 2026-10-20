@@ -48,4 +48,9 @@ public interface NotificationService {
      * Retrieve all delivery attempts for a notification, ordered by attempt number.
      */
     List<DeliveryAttemptResponse> getDeliveryAttempts(UUID notificationId);
+
+    /**
+     * Replay a failed notification, resetting its status to PENDING and re-queuing it.
+     */
+    NotificationResponse replayNotification(UUID id);
 }
