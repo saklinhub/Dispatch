@@ -21,4 +21,8 @@ public class ResourceNotFoundException extends RuntimeException {
     public static ResourceNotFoundException user(String id) {
         return new ResourceNotFoundException("User not found with id: " + id);
     }
+
+    public static ResourceNotFoundException outboxEvent(String id) {
+        return new ResourceNotFoundException("Outbox event not found with id: " + id);
+    }
 }

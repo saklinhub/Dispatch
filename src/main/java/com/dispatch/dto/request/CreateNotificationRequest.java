@@ -4,7 +4,10 @@ import com.dispatch.entity.enums.NotificationType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.Map;
@@ -13,6 +16,9 @@ import java.util.Map;
  * Request body for creating a new notification.
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CreateNotificationRequest {
 
     @NotNull(message = "Notification type is required")

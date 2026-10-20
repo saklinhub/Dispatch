@@ -106,6 +106,14 @@ Copy `.env.example` to `.env` to customize settings. In production, run with `SP
 | `DELETE` | `/api/v1/notifications/{id}` | Cancel a notification |
 | `GET` | `/api/v1/notifications/{id}/attempts` | Get delivery attempt history |
 
+### Transactional Outbox
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/outbox/events` | List transactional outbox events (paginated, filter by status) |
+| `GET` | `/api/v1/outbox/stats` | Get metrics on pending, published, and failed outbox events |
+| `POST` | `/api/v1/outbox/events/{id}/retry` | Manually re-trigger publishing of an outbox event to RabbitMQ |
+
 ## Project Roadmap
 
 | Part | Module / Topic | Scope & Key Components | Status |
@@ -113,7 +121,7 @@ Copy `.env.example` to `.env` to customize settings. In production, run with `SP
 | **01** | **Core Foundation & Persistence Layer** | Java 21/Spring Boot 3.3 setup, Docker infrastructure, Flyway migrations (V1–V6), JPA Entities, Spring Data JPA Repositories, JPA Auditing, and integration tests | ✅ Completed |
 | **02** | **Authentication & Authorization** | Stateless Spring Security configuration, JWT token provider (HS256), login/register/refresh endpoints, UserDetails service, password hashing, and role checks | ✅ Completed |
 | **03** | **Notification REST APIs & Validation** | Notification ingestion endpoint (`POST /api/v1/notifications`), status inspection APIs, request validation, DTOs, and global exception handling | ✅ Completed |
-| **04** | **Transactional Outbox & Broker Topology** | RabbitMQ exchange/queue/DLQ bindings, transactional outbox event publisher, scheduled outbox poller, and delivery reliability | ⏳ Pending |
+| **04** | **Transactional Outbox & Broker Topology** | RabbitMQ exchange/queue/DLQ bindings, transactional outbox event publisher, scheduled outbox poller, and delivery reliability | ✅ Completed |
 | **05** | **Asynchronous Consumers & Multi-Channel Delivery** | RabbitMQ message consumers, Strategy pattern for delivery providers (JavaMailSender for Email, Twilio SDK for SMS, Inbox persistence for In-App) | ⏳ Pending |
 | **06** | **Resilience, Retries & Dead Letter Queue (DLQ)** | Error classification (transient vs permanent), exponential backoff retries, delivery attempt audit logs, DLQ routing, and stuck-job recovery | ⏳ Pending |
 | **07** | **Idempotency & Duplicate Prevention** | Distributed/database idempotency key validation, concurrent request deduplication, and cached idempotent response delivery | ⏳ Pending |
