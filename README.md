@@ -1,145 +1,197 @@
 # Dispatch
 
-**Dispatch** is a backend notification platform built with Spring Boot that reliably processes and delivers email, SMS, and in-app notifications asynchronously. It uses RabbitMQ for message queuing and PostgreSQL for persistent storage.
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange.svg)](https://www.rabbitmq.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Features
+**Dispatch** is a reliable, asynchronous backend notification platform built with **Spring Boot 3.3** and **Java 21**. It orchestrates multi-channel notifications (Email, SMS, In-App) via a transactional outbox pipeline backed by **PostgreSQL** and **RabbitMQ**, guaranteeing zero lost notifications and full delivery auditability.
 
-- **Multi-channel delivery** - Email (SMTP), SMS (Twilio), and In-App notifications
-- **Asynchronous processing** - Notifications are queued via RabbitMQ; the API responds instantly without waiting for delivery
-- **JWT authentication** - Stateless, user-specific access to notification history and preferences
-- **Idempotent requests** - Duplicate API calls with the same idempotency key are safely deduplicated
-- **Automatic retries** - Exponential backoff with configurable max attempts
-- **Dead-letter queue** - Exhausted jobs are routed to a DLQ for inspection and manual replay
-- **Transactional outbox** - Notification records and outgoing events are committed atomically, eliminating database/broker inconsistency
-- **Delivery tracking** - Every delivery attempt is recorded with provider response and error codes
-- **Stuck job recovery** - Processing jobs idle beyond a configurable threshold are automatically reset
-- **In-app inbox** - Read/unread status, inbox fetch, and manual retry controls
+---
+
+## Architecture Overview
+
+Dispatch uses the **Transactional Outbox Pattern** to prevent dual-write inconsistencies between database mutations and message publishing. When a notification request arrives, both the notification record and its corresponding outbox event are persisted atomically within the same database transaction before any message broker communication occurs.
+
+```mermaid
+flowchart LR
+    Client["API Client"] -->|POST /notifications| Controller["Notification Controller"]
+    Controller -->|Atomic Commit| DB[("PostgreSQL\n(notifications + outbox_events)")]
+    Poller["Outbox Poller\n(Scheduled Task)"] -->|Poll PENDING| DB
+    Poller -->|Publish Message| Broker["RabbitMQ\n(dispatch.notifications)"]
+    Broker -->|Route| Queue["dispatch.notifications.queue"]
+    Queue -->|Consume| Consumer["Notification Consumer"]
+    Consumer --> Strategy{"Delivery Strategy"}
+    Strategy -->|EMAIL| SMTP["SMTP Server\n(JavaMailSender)"]
+    Strategy -->|SMS| Twilio["Twilio SMS API"]
+    Strategy -->|IN_APP| Inbox[("PostgreSQL\n(inbox_messages)")]
+    Consumer -->|Audit Record| Attempts[("PostgreSQL\n(delivery_attempts)")]
+```
+
+---
+
+## Core Features
+
+* **Transactional Outbox Pattern**: Atomic database writes guarantee no message is lost, even during network failures or broker downtime.
+* **Multi-Channel Dispatch**: Pluggable Strategy pattern supporting **Email** (SMTP / JavaMailSender), **SMS** (Twilio REST API), and **In-App** inbox persistence.
+* **Asynchronous Queue Pipeline**: Offloads external delivery provider latency from API response times using durable RabbitMQ queues.
+* **Stateless JWT Security**: HMAC-SHA256 authenticated API access with automatic refresh token rotation and BCrypt-hashed credentials.
+* **Strict Idempotency**: Deduplicates repeated API submissions using caller-supplied idempotency keys.
+* **Append-Only Delivery Audit**: Every dispatch attempt is recorded with provider responses, timestamps, and standardized error codes.
+* **Production-Hardened Configuration**: Profile-driven architecture (`dev` vs. `prod`), startup secret strength validation (256-bit HMAC keys), and secured Actuator health monitoring.
+
+---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Language | Java 21 |
-| Framework | Spring Boot 3.3 |
-| Database | PostgreSQL 16 |
-| Migrations | Flyway |
-| Message Broker | RabbitMQ 3.13 |
-| SMS | Twilio |
-| Authentication | JWT (JJWT) |
-| Testing | JUnit 5, Mockito, Testcontainers |
-| DevOps | Docker, Docker Compose, Maven |
-| API Docs | SpringDoc / Swagger UI |
+| Component | Technology | Description |
+|---|---|---|
+| **Runtime** | Java 21 | Modern LTS language features and performance |
+| **Framework** | Spring Boot 3.3.5 | Core dependency injection, MVC, and AMQP |
+| **Persistence** | PostgreSQL 16 + Spring Data JPA | Relational persistence with JSONB metadata storage |
+| **Database Migrations** | Flyway | Versioned database migrations (`V1` to `V6`) |
+| **Message Broker** | RabbitMQ 3.13 | Message routing, durable queues, and Dead Letter Exchange (DLQ) |
+| **Authentication** | JJWT (0.12.3) | Stateless JSON Web Tokens (Access + Refresh) |
+| **External Providers** | JavaMailSender + Twilio SDK | Multi-channel communication adapters |
+| **Documentation** | SpringDoc / OpenAPI 3 | Interactive Swagger UI with Bearer auth |
+| **Testing** | JUnit 5, Mockito, MockMvc | Comprehensive unit and integration test coverage |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
-- Java 21
-- Maven 3.9+
-- Docker and Docker Compose
 
-### Run locally
+* **Java 21** or later
+* **Maven 3.9+**
+* **Docker & Docker Compose**
+
+### 1. Start Infrastructure
+
+Launch PostgreSQL and RabbitMQ using the provided Docker Compose configuration:
 
 ```bash
-# Start PostgreSQL and RabbitMQ
-docker-compose up -d
+docker compose up -d
+```
 
-# Run the application
+Service mapping:
+* **PostgreSQL**: `localhost:5433` (mapped from container `5432`)
+* **RabbitMQ AMQP**: `localhost:5672`
+* **RabbitMQ Management UI**: [http://localhost:15672](http://localhost:15672) (`guest` / `guest`)
+
+### 2. Run the Application
+
+```bash
 mvn spring-boot:run
 ```
 
-The API is available at `http://localhost:8080`.
-Swagger UI is available at `http://localhost:8080/swagger-ui.html`.
-RabbitMQ management UI is available at `http://localhost:15672` (guest / guest).
+The application starts on `http://localhost:8080`. Flyway automatically executes database migrations on boot.
 
-## Environment Variables
+### 3. Verify Health & Interactive Docs
 
-Copy `.env.example` to `.env` to customize settings. In production, run with `SPRING_PROFILES_ACTIVE=prod` to enforce strict secret injection without development fallbacks.
+* **Swagger UI (Interactive API Docs)**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+* **Application Health Check**: `curl http://localhost:8080/actuator/health`
 
-| Variable | Description | Default (Local / Dev) | Required in Prod? |
+---
+
+## Configuration & Environment Variables
+
+The application runs locally without any required setup using safe development defaults. For staging and production, create a `.env` file (see [.env.example](file:///.env.example)) and activate the production profile:
+
+```bash
+export SPRING_PROFILES_ACTIVE=prod
+```
+
+| Variable | Description | Local / Dev Default | Production |
 |---|---|---|:---:|
-| `PORT` | Application HTTP port | `8080` | No |
-| `SPRING_PROFILES_ACTIVE` | Active Spring profile (`dev`, `prod`) | `dev` | Recommended |
-| `DB_HOST` | PostgreSQL hostname | `localhost` | Yes |
-| `DB_PORT` | PostgreSQL port | `5433` (Docker host) | Yes |
-| `DB_NAME` | Database name | `dispatch_db` | Yes |
-| `DB_USERNAME` | Database user | `dispatch` | Yes |
-| `DB_PASSWORD` | Database password | `dispatch` | Yes |
-| `SPRING_DATASOURCE_URL` | Optional full JDBC URL override | (constructed from DB_* vars) | No |
-| `RABBITMQ_HOST` | RabbitMQ broker host | `localhost` | Yes |
-| `RABBITMQ_PORT` | RabbitMQ broker port | `5672` | Yes |
-| `RABBITMQ_USERNAME` | RabbitMQ username | `guest` | Yes |
-| `RABBITMQ_PASSWORD` | RabbitMQ password | `guest` | Yes |
-| `JWT_SECRET` | HS256 secret (minimum 256 bits) | Dev default (blocked in prod) | **Yes** |
-| `JWT_EXPIRATION_MS` | Access token lifetime (ms) | `86400000` (24h) | No |
-| `JWT_REFRESH_EXPIRATION_MS` | Refresh token lifetime (ms) | `604800000` (7d) | No |
-| `MAIL_HOST` | SMTP server host | `smtp.gmail.com` | Yes |
-| `MAIL_PORT` | SMTP server port | `587` | No |
-| `MAIL_USERNAME` | SMTP username | — | Yes |
-| `MAIL_PASSWORD` | SMTP password / app password | — | Yes |
-| `MAIL_FROM` | Outgoing email address | `noreply@dispatch.io` | Yes |
-| `MAIL_FROM_NAME` | Outgoing email display name | `"Dispatch Notifications"` | No |
-| `TWILIO_ACCOUNT_SID` | Twilio Account SID | — | Optional |
-| `TWILIO_AUTH_TOKEN` | Twilio Auth Token | — | Optional |
-| `TWILIO_FROM_NUMBER` | Twilio sender phone (E.164) | — | Optional |
-| `TWILIO_MESSAGING_SERVICE_SID` | Twilio Messaging Service SID | — | Optional |
-| `SMS_ENABLED` | Toggle real SMS delivery | `false` | No |
+| `PORT` | HTTP server port | `8080` | Optional |
+| `SPRING_PROFILES_ACTIVE` | Active profile (`dev`, `prod`) | `dev` | **Recommended** |
+| `DB_HOST` | PostgreSQL host | `localhost` | **Required** |
+| `DB_PORT` | PostgreSQL port | `5433` | **Required** |
+| `DB_NAME` | Database name | `dispatch_db` | **Required** |
+| `DB_USERNAME` | Database username | `dispatch` | **Required** |
+| `DB_PASSWORD` | Database password | `dispatch` | **Required** |
+| `RABBITMQ_HOST` | RabbitMQ broker host | `localhost` | **Required** |
+| `RABBITMQ_PORT` | RabbitMQ broker port | `5672` | **Required** |
+| `RABBITMQ_USERNAME` | RabbitMQ user | `guest` | **Required** |
+| `RABBITMQ_PASSWORD` | RabbitMQ password | `guest` | **Required** |
+| `JWT_SECRET` | HMAC-SHA256 secret (minimum 256 bits) | Dev default (blocked in prod) | **Required** |
+| `JWT_EXPIRATION_MS` | Access token TTL in milliseconds | `86400000` (24h) | Optional |
+| `JWT_REFRESH_EXPIRATION_MS` | Refresh token TTL in milliseconds | `604800000` (7d) | Optional |
+| `MAIL_HOST` | SMTP server host | `smtp.gmail.com` | **Required** |
+| `MAIL_PORT` | SMTP server port | `587` | Optional |
+| `MAIL_USERNAME` | SMTP account username | *(empty / simulated)* | **Required** |
+| `MAIL_PASSWORD` | SMTP password / app password | *(empty / simulated)* | **Required** |
+| `MAIL_FROM` | Sender email address | `noreply@dispatch.io` | **Required** |
+| `TWILIO_ACCOUNT_SID` | Twilio Account SID | *(empty / simulated)* | Optional |
+| `TWILIO_AUTH_TOKEN` | Twilio Auth Token | *(empty / simulated)* | Optional |
+| `TWILIO_FROM_NUMBER` | Outgoing Twilio phone (E.164) | *(empty / simulated)* | Optional |
+| `SMS_ENABLED` | Toggle real SMS delivery | `false` | Optional |
 
-## API Overview
+> **Note on Local Simulation**: When SMTP or Twilio credentials are not configured, Dispatch safely simulates delivery in development mode, logging dispatch messages and generating synthetic provider identifiers without failing.
 
-### Authentication (JWT)
+---
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/auth/register` | Register a new user and receive JWT tokens |
-| `POST` | `/api/v1/auth/login` | Authenticate with email/password to receive JWT tokens |
-| `POST` | `/api/v1/auth/refresh` | Refresh access token using a valid refresh token |
-| `GET` | `/api/v1/auth/me` | Get profile for currently authenticated user |
+## API Reference
+
+All protected endpoints require an `Authorization: Bearer <access_token>` header obtained from `/api/v1/auth/login` or `/api/v1/auth/register`.
+
+### Authentication
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `POST` | `/api/v1/auth/register` | Register a new user and receive JWT tokens | No |
+| `POST` | `/api/v1/auth/login` | Authenticate credentials and receive JWT tokens | No |
+| `POST` | `/api/v1/auth/refresh` | Rotate access token using a valid refresh token | No |
+| `GET` | `/api/v1/auth/me` | Fetch authenticated user profile | **Yes** |
 
 ### Notifications
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/users/{userId}/notifications` | Create a notification (idempotent) |
-| `GET` | `/api/v1/notifications/{id}` | Get notification detail |
-| `GET` | `/api/v1/notifications/{id}/status` | Get notification status |
-| `GET` | `/api/v1/users/{userId}/notifications` | List notifications (paginated) |
-| `DELETE` | `/api/v1/notifications/{id}` | Cancel a notification |
-| `GET` | `/api/v1/notifications/{id}/attempts` | Get delivery attempt history |
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `POST` | `/api/v1/users/{userId}/notifications` | Ingest notification (supports `idempotencyKey`) | **Yes** |
+| `GET` | `/api/v1/notifications/{id}` | Retrieve full notification details | **Yes** |
+| `GET` | `/api/v1/notifications/{id}/status` | Lightweight status check | **Yes** |
+| `GET` | `/api/v1/users/{userId}/notifications` | Paginated notification history (filter by type/status) | **Yes** |
+| `DELETE` | `/api/v1/notifications/{id}` | Cancel pending or scheduled notification | **Yes** |
+| `GET` | `/api/v1/notifications/{id}/attempts` | Retrieve delivery attempt history | **Yes** |
 
-### Transactional Outbox
+### Transactional Outbox & Monitoring
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/v1/outbox/events` | List transactional outbox events (paginated, filter by status) |
-| `GET` | `/api/v1/outbox/stats` | Get metrics on pending, published, and failed outbox events |
-| `POST` | `/api/v1/outbox/events/{id}/retry` | Manually re-trigger publishing of an outbox event to RabbitMQ |
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `GET` | `/api/v1/outbox/events` | List outbox events (paginated, filterable by status) | **Yes** |
+| `GET` | `/api/v1/outbox/stats` | Real-time counts of pending, published, and failed events | **Yes** |
+| `POST` | `/api/v1/outbox/events/{id}/retry` | Manually re-trigger broker publication for an event | **Yes** |
 
-## Project Roadmap
-
-| Part | Module / Topic | Scope & Key Components | Status |
-|---|---|---|---|
-| **01** | **Core Foundation & Persistence Layer** | Java 21/Spring Boot 3.3 setup, Docker infrastructure, Flyway migrations (V1–V6), JPA Entities, Spring Data JPA Repositories, JPA Auditing, and integration tests | ✅ Completed |
-| **02** | **Authentication & Authorization** | Stateless Spring Security configuration, JWT token provider (HS256), login/register/refresh endpoints, UserDetails service, password hashing, and role checks | ✅ Completed |
-| **03** | **Notification REST APIs & Validation** | Notification ingestion endpoint (`POST /api/v1/notifications`), status inspection APIs, request validation, DTOs, and global exception handling | ✅ Completed |
-| **04** | **Transactional Outbox & Broker Topology** | RabbitMQ exchange/queue/DLQ bindings, transactional outbox event publisher, scheduled outbox poller, and delivery reliability | ✅ Completed |
-| **05** | **Asynchronous Consumers & Multi-Channel Delivery** | RabbitMQ message consumers, Strategy pattern for delivery providers (JavaMailSender for Email, Twilio SDK for SMS, Inbox persistence for In-App) | ✅ Completed |
-| **06** | **Resilience, Retries & Dead Letter Queue (DLQ)** | Error classification (transient vs permanent), exponential backoff retries, delivery attempt audit logs, DLQ routing, and stuck-job recovery | ⏳ Pending |
-| **07** | **Idempotency & Duplicate Prevention** | Distributed/database idempotency key validation, concurrent request deduplication, and cached idempotent response delivery | ⏳ Pending |
-| **08** | **User Preferences & Quiet Hours Evaluation** | Channel opt-in/opt-out filters, address overrides, timezone-aware quiet hours evaluation, and deferred notification scheduling | ⏳ Pending |
-| **09** | **In-App Inbox & Delivery Audit History** | User inbox APIs (`GET /api/v1/inbox`, read/unread toggles, unread counter badge), delivery attempt tracking history endpoints | ⏳ Pending |
-| **10** | **End-to-End Testing, Observability & Containerization** | Testcontainers integration suite (PostgreSQL + RabbitMQ), Actuator metrics, production Dockerfile, and container packaging | ⏳ Pending |
+---
 
 ## Database Schema
 
 | Table | Purpose |
 |---|---|
-| `users` | Registered users |
-| `notifications` | All notification requests |
-| `delivery_attempts` | Append-only delivery audit log |
-| `notification_preferences` | Per-user channel opt-ins and quiet hours |
-| `inbox_messages` | Persisted in-app messages |
-| `outbox_events` | Transactional outbox events |
+| `users` | User accounts with BCrypt-hashed credentials, contact addresses, and roles (`USER`, `ADMIN`). |
+| `notifications` | Ingested notifications with channel type, payload body, recipient, idempotency key, and status. |
+| `outbox_events` | Append-only event queue written atomically with notifications; drained by the outbox poller. |
+| `delivery_attempts` | Audit log of every delivery attempt per notification, including provider responses and error codes. |
+| `inbox_messages` | In-app user notifications with read/unread tracking and timestamps. |
+| `notification_preferences` | User-configured channel opt-ins, address overrides, and quiet hours. |
+
+---
+
+## Testing
+
+The project maintains a comprehensive automated test suite covering unit tests, Spring Security slices, JPA repositories, and RabbitMQ message flows.
+
+Run the test suite:
+
+```bash
+mvn test
+```
+
+---
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
