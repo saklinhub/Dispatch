@@ -2,8 +2,10 @@ package com.dispatch.dto.response;
 
 import com.dispatch.entity.enums.NotificationStatus;
 import com.dispatch.entity.enums.NotificationType;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.List;
@@ -15,6 +17,8 @@ import java.util.UUID;
  */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class NotificationResponse {
 
     private UUID id;

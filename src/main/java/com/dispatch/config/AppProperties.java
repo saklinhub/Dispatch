@@ -13,6 +13,7 @@ public class AppProperties {
     private final Sms sms = new Sms();
     private final Outbox outbox = new Outbox();
     private final Recovery recovery = new Recovery();
+    private final Idempotency idempotency = new Idempotency();
 
     @Data
     public static class Jwt {
@@ -63,5 +64,12 @@ public class AppProperties {
         private int retryMaxIntervalSeconds = 3600;
         private long retryPollIntervalMs = 5000L;
         private long checkIntervalMs = 60000L;
+    }
+
+    @Data
+    public static class Idempotency {
+        private long lockTimeoutSeconds = 60L;
+        private long retentionHours = 24L;
+        private long cleanupIntervalMs = 3600000L;
     }
 }

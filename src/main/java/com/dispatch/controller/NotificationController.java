@@ -1,14 +1,11 @@
 package com.dispatch.controller;
 
 import com.dispatch.dto.request.CreateNotificationRequest;
-import com.dispatch.dto.response.ApiError;
-import com.dispatch.dto.response.DeliveryAttemptResponse;
-import com.dispatch.dto.response.NotificationResponse;
-import com.dispatch.dto.response.NotificationSummary;
-import com.dispatch.dto.response.PageResponse;
+import com.dispatch.dto.response.*;
 import com.dispatch.entity.enums.NotificationStatus;
 import com.dispatch.entity.enums.NotificationType;
 import com.dispatch.service.NotificationService;
+import com.dispatch.service.idempotency.IdempotencyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -36,6 +33,7 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final IdempotencyService idempotencyService;
 
     //POST /api/v1/users/{userId}/notifications
 
@@ -43,21 +41,40 @@ public class NotificationController {
     @Operation(
         summary = "Create a notification",
         description = "Creates a new notification for the given user. " +
-                      "Supplying an idempotency key makes the request safe to retry.",
+                      "Supplying an idempotency key (via header or request body) prevents duplicate sends.",
         responses = {
             @ApiResponse(responseCode = "201", description = "Notification created"),
+            @ApiResponse(responseCode = "200", description = "Cached notification replayed idempotently"),
             @ApiResponse(responseCode = "400", description = "Validation error",
                 content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "404", description = "User not found",
+                content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Idempotency conflict (payload mismatch or concurrent in-flight request)",
                 content = @Content(schema = @Schema(implementation = ApiError.class)))
         }
     )
     public ResponseEntity<NotificationResponse> createNotification(
             @PathVariable UUID userId,
+            @Parameter(description = "Optional idempotency key header")
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader,
             @Valid @RequestBody CreateNotificationRequest request) {
 
-        NotificationResponse response = notificationService.createNotification(userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        String key = (idempotencyKeyHeader != null && !idempotencyKeyHeader.isBlank())
+                ? idempotencyKeyHeader.trim()
+                : request.getIdempotencyKey();
+
+        if (key != null && !key.isBlank()) {
+            request.setIdempotencyKey(key);
+        }
+
+        IdempotentExecutionResult<NotificationResponse> result = idempotencyService.execute(
+                key, userId, request, () -> notificationService.createNotification(userId, request));
+
+        HttpStatus status = result.isReplayed() ? HttpStatus.OK : HttpStatus.CREATED;
+
+        return ResponseEntity.status(status)
+                .header("Idempotent-Replayed", String.valueOf(result.isReplayed()))
+                .body(result.getData());
     }
 
     //GET /api/v1/notifications/{id}
