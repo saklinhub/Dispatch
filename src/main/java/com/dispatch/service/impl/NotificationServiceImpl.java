@@ -14,6 +14,7 @@ import com.dispatch.entity.enums.OutboxEventStatus;
 import com.dispatch.exception.InvalidStateException;
 import com.dispatch.exception.ResourceNotFoundException;
 import com.dispatch.mapper.NotificationMapper;
+import com.dispatch.observability.NotificationMetrics;
 import com.dispatch.repository.DeliveryAttemptRepository;
 import com.dispatch.repository.NotificationRepository;
 import com.dispatch.repository.OutboxEventRepository;
@@ -43,6 +44,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final OutboxEventRepository outboxEventRepository;
     private final NotificationMapper mapper;
     private final com.dispatch.resilience.DlqService dlqService;
+    private final NotificationMetrics notificationMetrics;
 
     //Create
 
@@ -105,6 +107,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         outboxEventRepository.save(outboxEvent);
 
+        notificationMetrics.recordNotificationCreated(notification.getType());
         log.info("Created notification {} and queued outbox event {}", notification.getId(), outboxEvent.getId());
         return mapper.toResponse(notification);
     }

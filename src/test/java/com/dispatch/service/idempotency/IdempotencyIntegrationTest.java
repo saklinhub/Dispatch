@@ -164,7 +164,8 @@ class IdempotencyIntegrationTest {
 
         // Zero duplicate entities created
         assertEquals(1, notificationRepository.count(), "Exactly 1 notification entity must exist in database");
-        assertEquals(1, outboxEventRepository.count(), "Exactly 1 outbox event must be queued");
+        assertEquals(1, outboxEventRepository.findByAggregateIdOrderByCreatedAtAsc(UUID.fromString(notificationId)).size(),
+                "Exactly 1 outbox event must be queued for notification");
     }
 
     @Test

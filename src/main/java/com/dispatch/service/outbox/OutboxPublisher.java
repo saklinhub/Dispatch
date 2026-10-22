@@ -5,6 +5,7 @@ import com.dispatch.dto.message.NotificationMessage;
 import com.dispatch.entity.OutboxEvent;
 import com.dispatch.entity.enums.NotificationType;
 import com.dispatch.entity.enums.OutboxEventStatus;
+import com.dispatch.observability.NotificationMetrics;
 import com.dispatch.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class OutboxPublisher {
     private final RabbitTemplate rabbitTemplate;
     private final OutboxEventRepository outboxEventRepository;
     private final AppProperties appProperties;
+    private final NotificationMetrics notificationMetrics;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean publish(OutboxEvent event) {
@@ -75,6 +77,8 @@ public class OutboxPublisher {
             event.setPublishedAt(Instant.now());
             event.setErrorMessage(null);
             outboxEventRepository.save(event);
+
+            notificationMetrics.recordOutboxPublished();
 
             log.info("Successfully published outbox event {} for aggregate {}",
                     event.getId(), event.getAggregateId());

@@ -8,6 +8,7 @@ import com.dispatch.entity.NotificationPreference;
 import com.dispatch.entity.enums.AttemptStatus;
 import com.dispatch.entity.enums.NotificationStatus;
 import com.dispatch.entity.enums.NotificationType;
+import com.dispatch.observability.NotificationMetrics;
 import com.dispatch.preference.QuietHoursEvaluator;
 import com.dispatch.repository.DeliveryAttemptRepository;
 import com.dispatch.repository.NotificationPreferenceRepository;
@@ -20,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -43,9 +45,11 @@ public class DeliveryDispatcher {
     private final BackoffCalculator backoffCalculator;
     private final DlqService dlqService;
     private final AppProperties appProperties;
+    private final NotificationMetrics notificationMetrics;
 
     @Transactional
     public DeliveryResult dispatch(NotificationMessage message) {
+        Instant dispatchStartTime = Instant.now();
         Optional<Notification> notificationOpt = notificationRepository.findById(message.getNotificationId());
 
         if (notificationOpt.isEmpty()) {
@@ -168,9 +172,13 @@ public class DeliveryDispatcher {
             notification.setScheduledAt(null);
             notificationRepository.save(notification);
 
+            notificationMetrics.recordNotificationDelivered(message.getType(), Duration.between(dispatchStartTime, Instant.now()));
+
             log.info("Notification {} transitioned to DELIVERED (attempt #{})",
                     notification.getId(), attemptNumber);
         } else {
+            notificationMetrics.recordNotificationFailed(message.getType(), result.getErrorCode());
+
             // Evaluate retry eligibility via ErrorClassifier and max retry limit
             boolean isTransient = errorClassifier.isTransient(result.getErrorCode(), result.getErrorMessage());
             int maxAttempts = appProperties.getRabbitmq().getRetryMaxAttempts();
