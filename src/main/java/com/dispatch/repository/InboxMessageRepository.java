@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -16,6 +17,10 @@ import java.util.UUID;
 
 @Repository
 public interface InboxMessageRepository extends JpaRepository<InboxMessage, UUID> {
+
+    Page<InboxMessage> findByUserId(UUID userId, Pageable pageable);
+
+    Page<InboxMessage> findByUserIdAndRead(UUID userId, boolean read, Pageable pageable);
 
     Page<InboxMessage> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
@@ -28,6 +33,7 @@ public interface InboxMessageRepository extends JpaRepository<InboxMessage, UUID
     List<InboxMessage> findByUserIdAndReadFalse(UUID userId);
 
     @Modifying
+    @Transactional
     @Query("UPDATE InboxMessage m SET m.read = true, m.readAt = :readAt WHERE m.user.id = :userId AND m.read = false")
     int markAllAsReadForUser(@Param("userId") UUID userId, @Param("readAt") Instant readAt);
 }

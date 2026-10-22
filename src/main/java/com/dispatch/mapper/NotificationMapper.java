@@ -53,8 +53,11 @@ public class NotificationMapper {
     }
 
     public DeliveryAttemptResponse toAttemptResponse(DeliveryAttempt da) {
+        Notification n = da.getNotification();
         return DeliveryAttemptResponse.builder()
                 .id(da.getId())
+                .notificationId(n != null ? n.getId() : null)
+                .channelType(n != null ? n.getType() : null)
                 .attemptNumber(da.getAttemptNumber())
                 .status(da.getStatus())
                 .providerResponse(da.getProviderResponse())
