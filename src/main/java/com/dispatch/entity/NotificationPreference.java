@@ -58,6 +58,29 @@ public class NotificationPreference {
     @Column(name = "quiet_hours_end")
     private LocalTime quietHoursEnd;
 
+    public void setQuietHoursStart(LocalTime quietHoursStart) {
+        this.quietHoursStart = quietHoursStart != null
+                ? quietHoursStart.truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                : null;
+    }
+
+    public void setQuietHoursEnd(LocalTime quietHoursEnd) {
+        this.quietHoursEnd = quietHoursEnd != null
+                ? quietHoursEnd.truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                : null;
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void sanitizeQuietHours() {
+        if (quietHoursStart != null) {
+            quietHoursStart = quietHoursStart.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        }
+        if (quietHoursEnd != null) {
+            quietHoursEnd = quietHoursEnd.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        }
+    }
+
     @Builder.Default
     @Column(name = "timezone", nullable = false, length = 100)
     private String timezone = "UTC";
