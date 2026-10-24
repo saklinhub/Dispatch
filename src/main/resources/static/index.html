@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dispatch - Notification Engine</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%22100%22%20%22100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            surface: {
+              900: '#0b0f19',
+              800: '#111827',
+              700: '#1f2937',
+              600: '#374151',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-surface-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- =================================================================== -->
+  <!-- Top Navigation Header -->
+  <!-- =================================================================== -->
+  <header class="glass-header sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+          <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
+        </div>
+        <div>
+          <span class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Dispatch
+            <span class="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30">v1.0 Pro</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="hidden md:flex items-center gap-2 ml-6 text-xs text-slate-400 border-l border-slate-700/60 pl-6">
+        <div id="systemHealthBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="font-medium">System Online</span>
+        </div>
+        <span class="text-slate-600">•</span>
+        <span id="activeEnvLabel" class="text-slate-400 font-mono">Profile: DEV</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Quick Actions Dropdown -->
+      <a href="/swagger-ui.html" target="_blank" class="hidden sm:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-800 text-slate-300 hover:text-white hover:bg-surface-700 border border-slate-700/60 transition">
+        <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+        Swagger API Docs
+      </a>
+
+      <a href="/actuator/prometheus" target="_blank" class="hidden sm:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-800 text-slate-300 hover:text-white hover:bg-surface-700 border border-slate-700/60 transition">
+        <i data-lucide="activity" class="w-3.5 h-3.5 text-orange-400"></i>
+        Prometheus
+      </a>
+
+      <!-- User Profile / Auth State Button -->
+      <div id="userHeaderSection" class="flex items-center gap-2">
+        <button id="authTriggerBtn" class="flex items-center gap-2 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-brand-600 text-white hover:bg-brand-500 transition shadow-sm shadow-brand-500/20">
+          <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+          <span>Log In / Register</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =================================================================== -->
+  <!-- Main Layout -->
+  <!-- =================================================================== -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 glass-panel border-y-0 border-l-0 flex flex-col justify-between shrink-0 hidden lg:flex">
+      <div class="p-4 space-y-1">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-3 py-2">Platform Core</div>
+        
+        <button data-tab="overview" class="nav-tab active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-white bg-brand-600/20 text-brand-300 border border-brand-500/30">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          Overview
+        </button>
+
+        <button data-tab="send" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="send" class="w-4 h-4"></i>
+          Send Notification
+        </button>
+
+        <button data-tab="notifications" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="list-ordered" class="w-4 h-4"></i>
+          Notifications
+        </button>
+
+        <button data-tab="inbox" class="nav-tab w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="inbox" class="w-4 h-4"></i>
+            In-App Inbox
+          </div>
+          <span id="sidebarInboxBadge" class="hidden px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-500 text-white">0</span>
+        </button>
+
+        <button data-tab="audit" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          Delivery Audit
+        </button>
+
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-3 pt-5 pb-2">Architecture & Reliability</div>
+
+        <button data-tab="preferences" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="sliders" class="w-4 h-4"></i>
+          Preferences & Quiet Hours
+        </button>
+
+        <button data-tab="credentials" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="key-round" class="w-4 h-4"></i>
+          My Delivery Credentials
+        </button>
+
+        <button data-tab="outbox" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="layers" class="w-4 h-4"></i>
+          Outbox & DLQ
+        </button>
+
+        <button data-tab="idempotency" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="fingerprint" class="w-4 h-4"></i>
+          Idempotency Lab
+        </button>
+
+        <button data-tab="health" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="pulse" class="w-4 h-4"></i>
+          Health & Metrics
+        </button>
+      </div>
+
+      <!-- Active User Card in Sidebar -->
+      <div class="p-4 border-t border-slate-800/80">
+        <div id="sidebarUserBox" class="p-3 rounded-xl bg-surface-800/70 border border-slate-700/50 flex items-center justify-between">
+          <div class="flex items-center gap-3 truncate">
+            <div id="userAvatar" class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-xs uppercase">
+              U
+            </div>
+            <div class="truncate">
+              <div id="userNameLabel" class="text-xs font-semibold text-white truncate">Guest User</div>
+              <div id="userEmailLabel" class="text-[10px] text-slate-400 font-mono truncate">Not logged in</div>
+            </div>
+          </div>
+          <button id="sidebarLogoutBtn" title="Logout" class="hidden text-slate-400 hover:text-rose-400 p-1.5 transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content Area -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+      <!-- =================================================================== -->
+      <!-- TAB 1: OVERVIEW -->
+      <!-- =================================================================== -->
+      <section id="tab-overview" class="tab-pane space-y-6">
+        <!-- Hero Banner -->
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-brand-600/20 via-indigo-900/10 to-surface-800 border border-brand-500/20 relative overflow-hidden">
+          <div class="max-w-2xl space-y-2 relative z-10">
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              Dispatch Notification Platform
+            </h1>
+            <p class="text-sm text-slate-300 leading-relaxed">
+              Asynchronous, fault-tolerant multi-channel delivery engine built with Spring Boot 3.3, Java 21, RabbitMQ transactional outbox, and PostgreSQL.
+            </p>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2.5 relative z-10">
+            <button onclick="switchTab('send')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition flex items-center gap-1.5 shadow-md shadow-brand-500/20">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              Send Test Notification
+            </button>
+            <button onclick="testSimulateInApp()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-surface-700/80 hover:bg-surface-600 text-slate-200 transition flex items-center gap-1.5 border border-slate-600/50">
+              <i data-lucide="bell" class="w-3.5 h-3.5 text-amber-400"></i>
+              Instant In-App Alert
+            </button>
+            <button onclick="switchTab('idempotency')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-surface-700/80 hover:bg-surface-600 text-slate-200 transition flex items-center gap-1.5 border border-slate-600/50">
+              <i data-lucide="fingerprint" class="w-3.5 h-3.5 text-indigo-400"></i>
+              Test Idempotency Replay
+            </button>
+          </div>
+        </div>
+
+        <!-- Metrics Overview Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Total Ingested -->
+          <div class="glass-panel p-5 rounded-2xl glass-panel-hover">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium text-slate-400">Total Notifications</span>
+              <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <i data-lucide="send" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div id="statTotalNotifications" class="text-2xl font-bold text-white mt-3">0</div>
+            <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+              <span class="text-emerald-400 font-medium">Atomic Outbox</span> logged
+            </div>
+          </div>
+
+          <!-- Unread Inbox -->
+          <div class="glass-panel p-5 rounded-2xl glass-panel-hover">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium text-slate-400">In-App Unread</span>
+              <div class="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <i data-lucide="bell" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div id="statInboxUnread" class="text-2xl font-bold text-white mt-3">0</div>
+            <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+              <span>User Inbox notifications</span>
+            </div>
+          </div>
+
+          <!-- Outbox Pending -->
+          <div class="glass-panel p-5 rounded-2xl glass-panel-hover">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium text-slate-400">Outbox Queue Lag</span>
+              <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <i data-lucide="layers" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div id="statOutboxPending" class="text-2xl font-bold text-white mt-3">0</div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              Events awaiting broker publish
+            </div>
+          </div>
+
+          <!-- DLQ Messages -->
+          <div class="glass-panel p-5 rounded-2xl glass-panel-hover">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium text-slate-400">Dead Letter Queue (DLQ)</span>
+              <div class="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <i data-lucide="alert-octagon" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div id="statDlqMessages" class="text-2xl font-bold text-white mt-3">0</div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              Exhausted retries in DLQ
+            </div>
+          </div>
+        </div>
+
+        <!-- Architecture Quick Info -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-panel p-5 rounded-2xl space-y-3 lg:col-span-2">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i data-lucide="git-commit" class="w-4 h-4 text-brand-400"></i>
+              Operational Guarantees & Features
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300 pt-1">
+              <div class="p-3 rounded-xl bg-surface-800/80 border border-slate-700/50 space-y-1">
+                <div class="font-semibold text-white flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                  Transactional Outbox Pattern
+                </div>
+                <p class="text-slate-400 text-[11px] leading-relaxed">
+                  Notifications and Outbox events are written in a single ACID transaction, eliminating dual-write loss even during broker failure.
+                </p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-surface-800/80 border border-slate-700/50 space-y-1">
+                <div class="font-semibold text-white flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  Multi-Channel Strategies
+                </div>
+                <p class="text-slate-400 text-[11px] leading-relaxed">
+                  Pluggable delivery for SMTP Email, Twilio SMS REST API, and persistent user In-App Inboxes.
+                </p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-surface-800/80 border border-slate-700/50 space-y-1">
+                <div class="font-semibold text-white flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  Timezone Quiet Hours
+                </div>
+                <p class="text-slate-400 text-[11px] leading-relaxed">
+                  Evaluates recipients' IANA timezones and window intervals (e.g. 22:00-07:00), deferring dispatches automatically.
+                </p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-surface-800/80 border border-slate-700/50 space-y-1">
+                <div class="font-semibold text-white flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  Idempotency Fingerprinting
+                </div>
+                <p class="text-slate-400 text-[11px] leading-relaxed">
+                  SHA-256 payload matching and atomic database locks prevent duplicate sends and replay cached responses seamlessly.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick System Diagnostic Card -->
+          <div class="glass-panel p-5 rounded-2xl space-y-3">
+            <h3 class="text-sm font-semibold text-white flex items-center justify-between">
+              <span>Platform Health</span>
+              <button onclick="refreshHealth()" class="text-slate-400 hover:text-white transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              </button>
+            </h3>
+            <div id="quickHealthSummary" class="space-y-2 text-xs">
+              <div class="p-2.5 rounded-xl bg-surface-800 flex items-center justify-between">
+                <span class="text-slate-400">PostgreSQL</span>
+                <span id="healthDbState" class="font-semibold text-emerald-400 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> UP
+                </span>
+              </div>
+              <div class="p-2.5 rounded-xl bg-surface-800 flex items-center justify-between">
+                <span class="text-slate-400">RabbitMQ Broker</span>
+                <span id="healthRabbitState" class="font-semibold text-emerald-400 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> UP
+                </span>
+              </div>
+              <div class="p-2.5 rounded-xl bg-surface-800 flex items-center justify-between">
+                <span class="text-slate-400">Outbox Pipeline</span>
+                <span id="healthOutboxState" class="font-semibold text-emerald-400 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> OPTIMAL
+                </span>
+              </div>
+            </div>
+            <button onclick="switchTab('health')" class="w-full py-2 rounded-xl text-xs font-semibold bg-surface-800 hover:bg-surface-700 text-slate-300 transition text-center border border-slate-700/60 block">
+              View Actuator Metrics
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 2: SEND NOTIFICATION -->
+      <!-- =================================================================== -->
+      <section id="tab-send" class="tab-pane hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-white">Send Notification</h2>
+            <p class="text-xs text-slate-400">Dispatch messages asynchronously across Email, SMS, or In-App channels.</p>
+          </div>
+          <!-- Quick Preset Buttons -->
+          <div class="flex gap-2">
+            <button onclick="loadSendPreset('IN_APP')" class="text-xs px-2.5 py-1.5 rounded-lg bg-surface-800 text-slate-300 hover:text-white border border-slate-700 transition">
+              Sample In-App
+            </button>
+            <button onclick="loadSendPreset('EMAIL')" class="text-xs px-2.5 py-1.5 rounded-lg bg-surface-800 text-slate-300 hover:text-white border border-slate-700 transition">
+              Sample Email
+            </button>
+            <button onclick="loadSendPreset('SMS')" class="text-xs px-2.5 py-1.5 rounded-lg bg-surface-800 text-slate-300 hover:text-white border border-slate-700 transition">
+              Sample SMS
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Form -->
+          <form id="notificationForm" onsubmit="handleSendNotification(event)" class="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-4">
+            <!-- Channel Selector -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Delivery Channel</label>
+              <div class="grid grid-cols-3 gap-3">
+                <label class="channel-card flex flex-col items-center gap-2 p-3.5 rounded-xl border border-slate-700/60 bg-surface-800/60 cursor-pointer transition hover:bg-surface-700/60 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10 has-[:checked]:text-brand-300">
+                  <input type="radio" name="sendChannel" value="IN_APP" checked class="hidden" onchange="updateChannelFields()">
+                  <i data-lucide="bell" class="w-5 h-5 text-amber-400"></i>
+                  <span class="text-xs font-semibold">IN_APP</span>
+                </label>
+                <label class="channel-card flex flex-col items-center gap-2 p-3.5 rounded-xl border border-slate-700/60 bg-surface-800/60 cursor-pointer transition hover:bg-surface-700/60 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10 has-[:checked]:text-brand-300">
+                  <input type="radio" name="sendChannel" value="EMAIL" class="hidden" onchange="updateChannelFields()">
+                  <i data-lucide="mail" class="w-5 h-5 text-indigo-400"></i>
+                  <span class="text-xs font-semibold">EMAIL</span>
+                </label>
+                <label class="channel-card flex flex-col items-center gap-2 p-3.5 rounded-xl border border-slate-700/60 bg-surface-800/60 cursor-pointer transition hover:bg-surface-700/60 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10 has-[:checked]:text-brand-300">
+                  <input type="radio" name="sendChannel" value="SMS" class="hidden" onchange="updateChannelFields()">
+                  <i data-lucide="smartphone" class="w-5 h-5 text-emerald-400"></i>
+                  <span class="text-xs font-semibold">SMS</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Recipient Address -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">
+                Recipient Address <span class="text-slate-500 text-[11px]">(Email address or E.164 Phone number)</span>
+              </label>
+              <input id="sendRecipient" type="text" required placeholder="user@example.com or +15555550100" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500 transition font-mono">
+            </div>
+
+            <!-- Subject -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Subject / Title</label>
+              <input id="sendSubject" type="text" placeholder="Welcome to Dispatch" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500 transition">
+            </div>
+
+            <!-- Body -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Notification Body</label>
+              <textarea id="sendBody" rows="4" required placeholder="Enter message body here..." class="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500 transition"></textarea>
+            </div>
+
+            <!-- Optional Dynamic Sender Metadata -->
+            <div class="p-3.5 rounded-xl bg-surface-800/40 border border-slate-700/60 space-y-3">
+              <label class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="sliders" class="w-3.5 h-3.5 text-brand-400"></i>
+                Dynamic Sender Metadata <span class="text-slate-500 text-[11px]">(Optional override)</span>
+              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] text-slate-400 mb-1">Custom From (Email / Phone)</label>
+                  <input id="sendCustomFrom" type="text" placeholder="e.g. billing@company.com" class="w-full px-3 py-1.5 rounded-lg bg-surface-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500 transition">
+                </div>
+                <div>
+                  <label class="block text-[11px] text-slate-400 mb-1">Sender Display Name</label>
+                  <input id="sendCustomFromName" type="text" placeholder="e.g. Billing Department" class="w-full px-3 py-1.5 rounded-lg bg-surface-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500 transition">
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Reply-To Address (Email only)</label>
+                <input id="sendCustomReplyTo" type="text" placeholder="e.g. support@company.com" class="w-full px-3 py-1.5 rounded-lg bg-surface-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500 transition">
+              </div>
+            </div>
+
+            <!-- Idempotency Key & Generator -->
+            <div class="p-4 rounded-xl bg-surface-800/60 border border-slate-700/60 space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                  <i data-lucide="key" class="w-3.5 h-3.5 text-brand-400"></i>
+                  Idempotency Key
+                </label>
+                <button type="button" onclick="generateNewIdempotencyKey()" class="text-[11px] text-brand-400 hover:text-brand-300 font-medium">
+                  Generate UUID
+                </button>
+              </div>
+              <input id="sendIdempotencyKey" type="text" placeholder="e.g. order-invoice-1002" class="w-full px-3 py-2 rounded-lg bg-surface-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500 transition">
+              <p class="text-[11px] text-slate-400">Repeating this key guarantees exact deduplication and cached response replay.</p>
+            </div>
+
+            <!-- Submit Button & Action Bar -->
+            <div class="flex items-center gap-3 pt-2">
+              <button type="submit" id="sendNotificationSubmitBtn" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white transition flex items-center justify-center gap-2 shadow-md shadow-brand-500/20">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                Dispatch Notification
+              </button>
+              <button type="button" onclick="testIdempotentReplayCurrent()" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-surface-800 hover:bg-surface-700 text-slate-300 transition border border-slate-700 flex items-center gap-1.5" title="Submits the same request twice in a row to observe Idempotency headers">
+                <i data-lucide="repeat" class="w-3.5 h-3.5 text-indigo-400"></i>
+                Test Replay
+              </button>
+            </div>
+          </form>
+
+          <!-- Live JSON Payload Preview & Result Console -->
+          <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <i data-lucide="terminal" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  Live API Request Preview
+                </span>
+                <span class="text-[10px] font-mono text-emerald-400">POST /users/{id}/notifications</span>
+              </div>
+              <pre id="jsonPreviewBox" class="p-3.5 rounded-xl bg-surface-950/80 border border-slate-800 text-[11px] text-slate-300 overflow-x-auto font-mono max-h-56 leading-relaxed"></pre>
+            </div>
+
+            <!-- Last Response Box -->
+            <div class="pt-2 border-t border-slate-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-400">API Response</span>
+                <span id="responseStatusBadge" class="text-[10px] px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-slate-400">idle</span>
+              </div>
+              <pre id="jsonResponseBox" class="p-3.5 rounded-xl bg-surface-950/80 border border-slate-800 text-[11px] text-slate-300 overflow-x-auto font-mono max-h-48">Awaiting submission...</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 3: NOTIFICATIONS LIST -->
+      <!-- =================================================================== -->
+      <section id="tab-notifications" class="tab-pane hidden space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Notifications History</h2>
+            <p class="text-xs text-slate-400">Inspect all notifications, statuses, and delivery attempt logs.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="notifChannelFilter" onchange="loadNotifications()" class="px-3 py-1.5 rounded-lg bg-surface-800 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+              <option value="">All Channels</option>
+              <option value="EMAIL">Email</option>
+              <option value="SMS">SMS</option>
+              <option value="IN_APP">In-App</option>
+            </select>
+            <select id="notifStatusFilter" onchange="loadNotifications()" class="px-3 py-1.5 rounded-lg bg-surface-800 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+              <option value="">All Statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="FAILED">Failed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+            <button onclick="loadNotifications()" class="p-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 transition border border-slate-700">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-surface-800/80 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-700/60">
+                <tr>
+                  <th class="py-3 px-4">Channel</th>
+                  <th class="py-3 px-4">Subject & Body</th>
+                  <th class="py-3 px-4">Recipient</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4">Created</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="notificationsTableBody" class="divide-y divide-slate-800/60">
+                <tr>
+                  <td colspan="6" class="text-center py-8 text-slate-500">Loading notifications...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination Bar -->
+          <div id="notifPagination" class="px-4 py-3 bg-surface-800/40 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+            <span id="notifPageCount">Page 1 of 1</span>
+            <div class="flex gap-2">
+              <button id="notifPrevBtn" onclick="changeNotifPage(-1)" class="px-2.5 py-1 rounded bg-surface-800 text-slate-300 hover:bg-surface-700 disabled:opacity-40">Prev</button>
+              <button id="notifNextBtn" onclick="changeNotifPage(1)" class="px-2.5 py-1 rounded bg-surface-800 text-slate-300 hover:bg-surface-700 disabled:opacity-40">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 4: IN-APP INBOX -->
+      <!-- =================================================================== -->
+      <section id="tab-inbox" class="tab-pane hidden space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-bold text-white">In-App Inbox</h2>
+              <span id="inboxUnreadBadgeLarge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30">0 unread</span>
+            </div>
+            <p class="text-xs text-slate-400">Messages persisted directly to your user notification feed.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- Filter Read / Unread -->
+            <select id="inboxReadFilter" onchange="loadInboxMessages()" class="px-3 py-1.5 rounded-lg bg-surface-800 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+              <option value="">All Messages</option>
+              <option value="false">Unread Only</option>
+              <option value="true">Read Only</option>
+            </select>
+            <button onclick="handleMarkAllInboxRead()" class="px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5">
+              <i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+              Mark All Read
+            </button>
+            <button onclick="loadInboxMessages()" class="p-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 transition border border-slate-700">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inbox List Container -->
+        <div id="inboxMessagesContainer" class="space-y-3">
+          <div class="text-center py-12 text-slate-500 text-xs">Loading inbox...</div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 5: DELIVERY AUDIT -->
+      <!-- =================================================================== -->
+      <section id="tab-audit" class="tab-pane hidden space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Delivery Audit Trail</h2>
+            <p class="text-xs text-slate-400">Append-only audit log recording every delivery dispatch attempt, status, and provider response.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="auditStatusFilter" onchange="loadDeliveryHistory()" class="px-3 py-1.5 rounded-lg bg-surface-800 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+              <option value="">All Attempt Statuses</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="FAILURE">FAILURE</option>
+              <option value="RETRYING">RETRYING</option>
+            </select>
+            <button onclick="loadDeliveryHistory()" class="p-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 transition border border-slate-700">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-surface-800/80 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-700/60">
+                <tr>
+                  <th class="py-3 px-4">Channel</th>
+                  <th class="py-3 px-4">Attempt #</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4">Provider Response / Error</th>
+                  <th class="py-3 px-4">Attempted At</th>
+                  <th class="py-3 px-4 text-right">Inspect</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody" class="divide-y divide-slate-800/60">
+                <tr>
+                  <td colspan="6" class="text-center py-8 text-slate-500">Loading audit history...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 6: PREFERENCES & QUIET HOURS -->
+      <!-- =================================================================== -->
+      <section id="tab-preferences" class="tab-pane hidden space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white">Notification Preferences & Quiet Hours</h2>
+          <p class="text-xs text-slate-400">Configure opt-in channels, contact overrides, and timezone-aware quiet hours.</p>
+        </div>
+
+        <form id="preferencesForm" onsubmit="handleUpdatePreferences(event)" class="glass-panel p-6 rounded-2xl space-y-6 max-w-3xl">
+          <!-- Channel Opt-Ins -->
+          <div class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Channel Subscriptions</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label class="flex items-center justify-between p-3.5 rounded-xl bg-surface-800/70 border border-slate-700/60 cursor-pointer">
+                <span class="text-xs font-medium text-slate-200">Email Notifications</span>
+                <input id="prefEmailEnabled" type="checkbox" checked class="w-4 h-4 rounded text-brand-600 bg-surface-900 border-slate-700 focus:ring-0">
+              </label>
+
+              <label class="flex items-center justify-between p-3.5 rounded-xl bg-surface-800/70 border border-slate-700/60 cursor-pointer">
+                <span class="text-xs font-medium text-slate-200">SMS Notifications</span>
+                <input id="prefSmsEnabled" type="checkbox" checked class="w-4 h-4 rounded text-brand-600 bg-surface-900 border-slate-700 focus:ring-0">
+              </label>
+
+              <label class="flex items-center justify-between p-3.5 rounded-xl bg-surface-800/70 border border-slate-700/60 cursor-pointer">
+                <span class="text-xs font-medium text-slate-200">In-App Notifications</span>
+                <input id="prefInAppEnabled" type="checkbox" checked class="w-4 h-4 rounded text-brand-600 bg-surface-900 border-slate-700 focus:ring-0">
+              </label>
+            </div>
+          </div>
+
+          <!-- Destination Overrides -->
+          <div class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Destination Overrides (Optional)</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Preferred Alternate Email</label>
+                <input id="prefAlternateEmail" type="email" placeholder="alerts@work.com" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Preferred Alternate Phone</label>
+                <input id="prefAlternatePhone" type="text" placeholder="+15555550299" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+              </div>
+            </div>
+          </div>
+
+          <!-- Quiet Hours -->
+          <div class="p-4 rounded-xl bg-surface-800/60 border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  Timezone-Aware Quiet Hours
+                </h3>
+                <p class="text-[11px] text-slate-400">Notifications triggered during this interval are automatically deferred until window ends.</p>
+              </div>
+              <span id="quietHoursStatusBadge" class="text-[10px] px-2 py-0.5 rounded font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Inactive
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-300 mb-1">Timezone (IANA)</label>
+                <select id="prefTimezone" class="w-full px-3 py-2 rounded-lg bg-surface-900 border border-slate-700 text-xs text-white focus:outline-none">
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">America/New_York (EST/EDT)</option>
+                  <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                  <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                  <option value="Europe/London">Europe/London (GMT/BST)</option>
+                  <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                  <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                  <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-300 mb-1">Quiet Hours Start</label>
+                <input id="prefQuietStart" type="time" class="w-full px-3 py-2 rounded-lg bg-surface-900 border border-slate-700 text-xs text-white focus:outline-none font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-300 mb-1">Quiet Hours End</label>
+                <input id="prefQuietEnd" type="time" class="w-full px-3 py-2 rounded-lg bg-surface-900 border border-slate-700 text-xs text-white focus:outline-none font-mono">
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition flex items-center gap-1.5 shadow-md shadow-brand-500/20">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            Save Preferences
+          </button>
+        </form>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB: MY DELIVERY CREDENTIALS (MULTI-TENANT SELF-SERVICE) -->
+      <!-- =================================================================== -->
+      <section id="tab-credentials" class="tab-pane hidden space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="key-round" class="w-5 h-5 text-brand-400"></i>
+            My Delivery Credentials (Self-Service)
+          </h2>
+          <p class="text-xs text-slate-400">Connect your own personal or company email (Gmail, SendGrid, Mailtrap) and Twilio accounts so your notifications send through your own services.</p>
+        </div>
+
+        <!-- Current Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 rounded-2xl bg-surface-850/80 border border-slate-700/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <i data-lucide="mail" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-white">Email Provider</div>
+                <div id="credEmailStatus" class="text-xs text-slate-400 font-mono">System Default (Simulation)</div>
+              </div>
+            </div>
+            <span id="credEmailBadge" class="text-[11px] px-2.5 py-1 rounded-full font-semibold bg-slate-800 text-slate-400 border border-slate-700">Not Configured</span>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-surface-850/80 border border-slate-700/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <i data-lucide="message-square" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-white">SMS Provider</div>
+                <div id="credSmsStatus" class="text-xs text-slate-400 font-mono">System Default (Simulation)</div>
+              </div>
+            </div>
+            <span id="credSmsBadge" class="text-[11px] px-2.5 py-1 rounded-full font-semibold bg-slate-800 text-slate-400 border border-slate-700">Not Configured</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Email Form -->
+          <form id="credEmailForm" class="p-5 rounded-2xl bg-surface-850/80 border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="mail" class="w-4 h-4 text-blue-400"></i>
+                Configure Email Credentials
+              </h3>
+              <button type="button" onclick="deleteDeveloperCredential('EMAIL')" class="text-xs text-rose-400 hover:text-rose-300">Reset to Default</button>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Preset Provider</label>
+              <select id="credEmailProvider" onchange="handleEmailProviderPreset(this.value)" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+                <option value="GMAIL">Gmail (smtp.gmail.com:587)</option>
+                <option value="SENDGRID">SendGrid (smtp.sendgrid.net:587)</option>
+                <option value="RESEND">Resend (smtp.resend.com:587)</option>
+                <option value="MAILTRAP">Mailtrap Sandbox (sandbox.smtp.mailtrap.io:2525)</option>
+                <option value="AWS_SES">Amazon SES (email-smtp.us-east-1.amazonaws.com)</option>
+                <option value="CUSTOM">Custom SMTP Server</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">SMTP Host</label>
+                <input id="credEmailHost" type="text" value="smtp.gmail.com" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Port</label>
+                <input id="credEmailPort" type="number" value="587" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Username / Login / API User</label>
+              <input id="credEmailUsername" type="text" required placeholder="your.name@gmail.com or apikey" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Password / 16-Char App Password / API Key</label>
+              <input id="credEmailPassword" type="password" required placeholder="••••••••••••••••" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">From Email Address</label>
+                <input id="credEmailFrom" type="email" required placeholder="your.name@gmail.com" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Sender Display Name</label>
+                <input id="credEmailFromName" type="text" placeholder="My Cool App" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              Save My Email Credentials
+            </button>
+          </form>
+
+          <!-- SMS Form -->
+          <form id="credSmsForm" class="p-5 rounded-2xl bg-surface-850/80 border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i>
+                Configure Twilio SMS Credentials
+              </h3>
+              <button type="button" onclick="deleteDeveloperCredential('SMS')" class="text-xs text-rose-400 hover:text-rose-300">Reset to Default</button>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Twilio Account SID</label>
+              <input id="credSmsSid" type="text" required placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Twilio Auth Token</label>
+              <input id="credSmsToken" type="password" required placeholder="••••••••••••••••••••••••••••••••" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Twilio From Phone Number (E.164)</label>
+              <input id="credSmsFrom" type="text" required placeholder="+15551234567" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Messaging Service SID (Optional)</label>
+              <input id="credSmsServiceSid" type="text" placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-3 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              Save My Twilio Credentials
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 7: OUTBOX & DLQ -->
+      <!-- =================================================================== -->
+      <section id="tab-outbox" class="tab-pane hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-white">Transactional Outbox & Dead Letter Queue</h2>
+            <p class="text-xs text-slate-400">Monitor asynchronous broker publication and dead-lettered messages.</p>
+          </div>
+          <button onclick="loadOutboxAndDlq()" class="p-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 transition border border-slate-700">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Outbox Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="glass-panel p-4 rounded-xl">
+            <span class="text-xs font-medium text-slate-400">Outbox Pending</span>
+            <div id="outboxPendingCount" class="text-xl font-bold text-amber-400 mt-1">0</div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <span class="text-xs font-medium text-slate-400">Outbox Published</span>
+            <div id="outboxPublishedCount" class="text-xl font-bold text-emerald-400 mt-1">0</div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <span class="text-xs font-medium text-slate-400">Outbox Failed</span>
+            <div id="outboxFailedCount" class="text-xl font-bold text-rose-400 mt-1">0</div>
+          </div>
+        </div>
+
+        <!-- Outbox Events Table -->
+        <div class="glass-panel rounded-2xl overflow-hidden">
+          <div class="px-5 py-3 border-b border-slate-800 bg-surface-800/40 flex items-center justify-between">
+            <h3 class="text-xs font-semibold text-white uppercase tracking-wider">Transactional Outbox Events</h3>
+            <span class="text-[11px] text-slate-400">Auto-polled by OutboxPoller worker</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-surface-800/80 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-700/60">
+                <tr>
+                  <th class="py-2.5 px-4">Event ID</th>
+                  <th class="py-2.5 px-4">Type</th>
+                  <th class="py-2.5 px-4">Status</th>
+                  <th class="py-2.5 px-4">Created At</th>
+                  <th class="py-2.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="outboxTableBody" class="divide-y divide-slate-800/60">
+                <tr>
+                  <td colspan="5" class="text-center py-6 text-slate-500">Loading outbox events...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- DLQ Card -->
+        <div class="glass-panel p-5 rounded-2xl space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-400"></i>
+              Dead Letter Queue (DLQ) Management
+            </h3>
+            <span id="dlqBadge" class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">0 items</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Notifications that exhausted retry limits or encountered permanent provider rejections land here.
+          </p>
+          <div class="flex gap-2 pt-2">
+            <input id="dlqReplayIdInput" type="text" placeholder="Enter Notification ID to replay" class="px-3 py-1.5 rounded-lg bg-surface-800 border border-slate-700 text-xs text-white flex-1 font-mono focus:outline-none">
+            <button onclick="handleReplayDlq()" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition">
+              Replay Notification
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 8: IDEMPOTENCY LAB -->
+      <!-- =================================================================== -->
+      <section id="tab-idempotency" class="tab-pane hidden space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white">Idempotency & Deduplication Lab</h2>
+          <p class="text-xs text-slate-400">Test concurrent request deduplication, SHA-256 payload hashing, and cached replay response inspection.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Inspect Idempotency Key -->
+          <div class="glass-panel p-6 rounded-2xl space-y-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Lookup Idempotency Record</h3>
+            <div class="flex gap-2">
+              <input id="lookupIdempotencyKey" type="text" placeholder="Enter Idempotency Key" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-slate-700 text-xs font-mono text-white focus:outline-none">
+              <button onclick="handleLookupIdempotency()" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition shrink-0">
+                Lookup
+              </button>
+            </div>
+            
+            <pre id="idempotencyRecordBox" class="p-3.5 rounded-xl bg-surface-950/80 border border-slate-800 text-[11px] text-slate-300 font-mono min-h-[160px] overflow-x-auto">No record queried.</pre>
+
+            <button onclick="handleDeleteIdempotencyRecord()" class="w-full py-2 rounded-xl text-xs font-medium text-rose-400 hover:bg-rose-500/10 border border-rose-500/30 transition">
+              Clear Key from Cache
+            </button>
+          </div>
+
+          <!-- Rapid Idempotency Stress Test -->
+          <div class="glass-panel p-6 rounded-2xl space-y-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rapid Replay Simulator</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Fires two back-to-back requests with identical keys and validates the second request returns <code class="text-emerald-400">200 OK</code> and <code class="text-brand-300">Idempotent-Replayed: true</code> without creating duplicate notifications.
+            </p>
+            <button onclick="runIdempotencyDemo()" class="w-full py-3 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20">
+              <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+              Execute Replay Test Run
+            </button>
+            <div id="idempotencyDemoOutput" class="p-3.5 rounded-xl bg-surface-950/80 border border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
+              Click 'Execute Replay Test Run' to begin simulation.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 9: HEALTH & OBSERVABILITY -->
+      <!-- =================================================================== -->
+      <section id="tab-health" class="tab-pane hidden space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white">System Health & Observability</h2>
+          <p class="text-xs text-slate-400">Spring Boot 3 Actuator health indicators, Prometheus metrics, and live diagnostic dumps.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="glass-panel p-6 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Actuator Health (/actuator/health)</h3>
+              <button onclick="refreshFullHealth()" class="text-xs text-brand-400 hover:text-brand-300">Refresh</button>
+            </div>
+            <pre id="actuatorHealthBox" class="p-3.5 rounded-xl bg-surface-950/80 border border-slate-800 text-[11px] text-slate-300 font-mono max-h-80 overflow-y-auto leading-relaxed">Loading health...</pre>
+          </div>
+
+          <div class="glass-panel p-6 rounded-2xl space-y-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Metric Exporters</h3>
+            <p class="text-xs text-slate-300">
+              Live Micrometer metrics configured with Prometheus exposition format:
+            </p>
+            <ul class="text-xs space-y-2 text-slate-400 font-mono">
+              <li>• <span class="text-white">dispatch_notifications_created_total</span></li>
+              <li>• <span class="text-white">dispatch_notifications_delivered_total</span></li>
+              <li>• <span class="text-white">dispatch_notifications_failed_total</span></li>
+              <li>• <span class="text-white">dispatch_delivery_latency_seconds</span></li>
+              <li>• <span class="text-white">dispatch_outbox_pending_gauge</span></li>
+            </ul>
+            <div class="pt-2">
+              <a href="/actuator/prometheus" target="_blank" class="w-full py-2.5 rounded-xl text-xs font-semibold bg-surface-800 hover:bg-surface-700 text-white transition flex items-center justify-center gap-2 border border-slate-700 block text-center">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                Open Raw Prometheus Scrape Endpoint
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: AUTHENTICATION (LOGIN / REGISTER) -->
+  <!-- =================================================================== -->
+  <div id="authModal" class="fixed inset-0 z-50 modal-backdrop hidden items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700 relative">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex border-b border-slate-700 mb-5">
+        <button id="authTabLogin" onclick="switchAuthMode('login')" class="flex-1 pb-2 text-sm font-semibold text-brand-400 border-b-2 border-brand-500">
+          Sign In
+        </button>
+        <button id="authTabRegister" onclick="switchAuthMode('register')" class="flex-1 pb-2 text-sm font-semibold text-slate-400 hover:text-slate-200">
+          Register
+        </button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Email</label>
+          <input id="loginEmail" type="email" required placeholder="user@dispatch.io" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+          <input id="loginPassword" type="password" required placeholder="••••••••" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-3 hidden">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
+          <input id="regFullName" type="text" required placeholder="Jane Doe" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Email</label>
+          <input id="regEmail" type="email" required placeholder="jane@example.com" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Phone Number</label>
+          <input id="regPhone" type="text" placeholder="+15555550199" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+          <input id="regPassword" type="password" required placeholder="At least 8 chars" class="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition">
+          Create Account
+        </button>
+      </form>
+
+      <!-- Quick Demo Account Fill -->
+      <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between text-[11px] text-slate-400">
+        <span>Quick Demo:</span>
+        <button type="button" onclick="quickFillDemoUser()" class="text-brand-400 hover:text-brand-300">Create & Fill Test User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: NOTIFICATION / ATTEMPT DETAILS -->
+  <!-- =================================================================== -->
+  <div id="detailModal" class="fixed inset-0 z-50 modal-backdrop hidden items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-2xl rounded-2xl p-6 shadow-2xl border border-slate-700 relative max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 id="modalTitle" class="text-sm font-bold text-white">Details</h3>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto py-4">
+        <pre id="modalJsonBox" class="p-4 rounded-xl bg-surface-950 text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>

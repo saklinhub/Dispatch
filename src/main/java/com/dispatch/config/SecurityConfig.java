@@ -33,6 +33,14 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
 
     private static final String[] PUBLIC_URLS = {
+        "/",
+        "/index.html",
+        "/favicon.ico",
+        "/*.html",
+        "/*.css",
+        "/*.js",
+        "/static/**",
+        "/assets/**",
         "/api/v1/auth/register",
         "/api/v1/auth/login",
         "/api/v1/auth/refresh",

@@ -256,4 +256,77 @@ class MultiChannelDeliveryIntegrationTest {
         assertFalse(inbox.isEmpty());
         assertEquals("Async End-to-End", inbox.getContent().get(0).getTitle());
     }
+
+    @Test
+    @DisplayName("Email delivery dynamically resolves custom sender address and reply-to from channelMetadata")
+    void testDynamicSenderEmailDelivery() {
+        java.util.Map<String, Object> metadata = java.util.Map.of(
+                "fromAddress", "billing@customcompany.com",
+                "fromName", "Custom Billing Team",
+                "replyTo", "support@customcompany.com"
+        );
+
+        CreateNotificationRequest request = CreateNotificationRequest.builder()
+                .type(NotificationType.EMAIL)
+                .recipientAddress("delivery.tester@dispatch.io")
+                .subject("Custom Sender Invoice")
+                .body("Invoice details from billing")
+                .channelMetadata(metadata)
+                .build();
+
+        NotificationResponse response = notificationService.createNotification(testUser.getId(), request);
+
+        NotificationMessage message = NotificationMessage.builder()
+                .notificationId(response.getId())
+                .userId(testUser.getId())
+                .type(NotificationType.EMAIL)
+                .recipientAddress(request.getRecipientAddress())
+                .subject(request.getSubject())
+                .body(request.getBody())
+                .channelMetadata(metadata)
+                .build();
+
+        DeliveryResult result = deliveryDispatcher.dispatch(message);
+        assertTrue(result.isSuccess());
+
+        List<DeliveryAttempt> attempts = deliveryAttemptRepository.findByNotificationIdOrderByAttemptNumberAsc(response.getId());
+        assertEquals(1, attempts.size());
+        assertEquals(AttemptStatus.SUCCESS, attempts.get(0).getStatus());
+        assertTrue(attempts.get(0).getProviderResponse().contains("billing@customcompany.com"),
+                "Provider response should record custom sender address");
+    }
+
+    @Test
+    @DisplayName("SMS delivery dynamically resolves custom sender number from channelMetadata")
+    void testDynamicSenderSmsDelivery() {
+        java.util.Map<String, Object> metadata = java.util.Map.of(
+                "fromNumber", "+18005550199"
+        );
+
+        CreateNotificationRequest request = CreateNotificationRequest.builder()
+                .type(NotificationType.SMS)
+                .recipientAddress("+15555550400")
+                .body("Your OTP from custom sender")
+                .channelMetadata(metadata)
+                .build();
+
+        NotificationResponse response = notificationService.createNotification(testUser.getId(), request);
+
+        NotificationMessage message = NotificationMessage.builder()
+                .notificationId(response.getId())
+                .userId(testUser.getId())
+                .type(NotificationType.SMS)
+                .recipientAddress(request.getRecipientAddress())
+                .body(request.getBody())
+                .channelMetadata(metadata)
+                .build();
+
+        DeliveryResult result = deliveryDispatcher.dispatch(message);
+        assertTrue(result.isSuccess());
+
+        List<DeliveryAttempt> attempts = deliveryAttemptRepository.findByNotificationIdOrderByAttemptNumberAsc(response.getId());
+        assertEquals(1, attempts.size());
+        assertEquals(AttemptStatus.SUCCESS, attempts.get(0).getStatus());
+        assertTrue(attempts.get(0).getProviderResponse().contains("Simulated SMS"));
+    }
 }
